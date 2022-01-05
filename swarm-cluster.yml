@@ -96,10 +96,9 @@
   become: true
   tasks:
     - name: initialize swarm cluster
-      vars: 
-       ip: "testtttttttttttttttttttttttt"      
       shell: >
-        echo $(hostname -I | awk ' {print $1}')
+        docker swarm init
+        --advertise-addr=$(hostname -I | awk ' {print $1}'):2377
       register: new_cluster_initiated
     - name: add initialized host to first_manager_node tmp group
       add_host:
