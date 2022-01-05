@@ -99,7 +99,7 @@
       vars: 
        ip: "testtttttttttttttttttttttttt"      
       shell: >
-        {{ip}}
+        echo $(hostname -I | awk ' {print $1}')
       register: new_cluster_initiated
     - name: add initialized host to first_manager_node tmp group
       add_host:
