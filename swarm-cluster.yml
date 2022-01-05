@@ -1,3 +1,76 @@
+# 
+- name: install Docker to all cluster hosts
+  hosts: docker-swarm
+  gather_facts: false
+
+# Yum install package
+  tasks:
+  - name: Install common software requirements
+    become: true
+    yum:
+      state: installed
+      name: 
+        - lvm2
+        - device-mapper-persistent-data
+        - yum-utils
+# Yum install package
+  - name: Update docker repo
+    command: sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  - name: Update repos
+    command: yum update -y
+  - name: Install docker packages
+    become: true  
+    yum: 
+      state: installed
+      name: 
+       - docker-ce
+       - docker-ce-cli
+       - containerd.io
+
+ 
+# Work with services
+- name: Enable and start docker services
+  hosts: docker-swarm
+  gather_facts: false
+  tasks:
+# Configure proxy for docker
+  - name: Create docker service systemd directory if it doesn't exist
+    file:
+      path:  /etc/systemd/system/docker.service.d
+      state: directory
+    when: http_proxy is defined or https_proxy is defined
+  - name: Write docker proxy drop-in
+    template:
+      src: http-proxy.conf.j2
+      dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+    when: http_proxy is defined or https_proxy is defined
+# Enable docker service
+  - name: Enable docker service
+    service:
+      name: docker
+      enabled: yes
+# Reload and restart docker service
+  - name: Restart docker service
+    service:
+      name: docker
+      state: restarted
+      daemon_reload: yes
+# Check if service is started
+  - name: Start docker service
+    service:
+      name: docker
+      state: started
+# Check if nodes in cluster yet
+- name:  Check nodes not in cluster
+  hosts: docker-swarm
+  become: true
+  tasks:
+
+# Get Swarm status from nodes
+    - name: determine swarm status
+      shell: >
+        docker info | egrep '^Swarm' | cut -d ' ' -f2
+      register: swarm_status
 
 # Worker Hosts not in swarm cluster - prepare list to bootstrap it
     - name: echo_swarm_worker_bootstrap_group
@@ -17,15 +90,20 @@
         groups: swarm_manager_bootstrap
       with_items: "{{ groups['docker-swarm-manager'] }}" 
       when: "'active' not in swarm_status.stdout_lines"
-      run_once: true
-
-
-    - name:  Initiate Docker Swarm Cluster
-      hosts: swarm_manager_bootstrap[0]
-      become: true
+      run_once: true	  
+- name:  Initiate Docker Swarm Cluster
+  hosts: swarm_manager_bootstrap[0]
+  become: true
+  tasks:
+    - name: initialize swarm cluster
       vars: 
-       ip: "testtttttttttttttttttttttttt"  
-      tasks:
-        - name: initialize swarm cluster
-          shell: >
-            {{ip}}
+       ip: "testtttttttttttttttttttttttt"      
+      shell: >
+        {{ip}}
+      register: new_cluster_initiated
+    - name: add initialized host to first_manager_node tmp group
+      add_host:
+        hostname: "{{ groups['swarm_manager_bootstrap'][0] }}" 
+        groups: first_manager_node
+      when: new_cluster_initiated | changed
+
