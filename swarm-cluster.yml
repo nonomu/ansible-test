@@ -28,3 +28,66 @@
        - containerd.io
 
  
+# Work with services
+- name: Enable and start docker services
+  hosts: docker-swarm
+  gather_facts: false
+  tasks:
+# Configure proxy for docker
+  - name: Create docker service systemd directory if it doesn't exist
+    file:
+      path:  /etc/systemd/system/docker.service.d
+      state: directory
+    when: http_proxy is defined or https_proxy is defined
+  - name: Write docker proxy drop-in
+    template:
+      src: http-proxy.conf.j2
+      dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+    when: http_proxy is defined or https_proxy is defined
+# Enable docker service
+  - name: Enable docker service
+    service:
+      name: docker
+      enabled: yes
+# Reload and restart docker service
+  - name: Restart docker service
+    service:
+      name: docker
+      state: restarted
+      daemon_reload: yes
+# Check if service is started
+  - name: Start docker service
+    service:
+      name: docker
+      state: started
+# Check if nodes in cluster yet
+- name:  Check nodes not in cluster
+  hosts: docker-swarm
+  become: true
+  tasks:
+
+# Get Swarm status from nodes
+    - name: determine swarm status
+      shell: >
+        docker info | egrep '^Swarm' | cut -d ' ' -f2
+      register: swarm_status
+
+# Worker Hosts not in swarm cluster - prepare list to bootstrap it
+    - name: echo_swarm_worker_bootstrap_group
+      add_host:
+        hostname: "{{ item }}"
+        groups: swarm_worker_bootstrap
+#      debug: 
+#        msg: "{{ item }}"
+      with_items:  "{{ groups['docker-swarm-node'] }}"  
+      when: "'active' not in swarm_status.stdout_lines"
+      run_once: true
+
+# Manager Hosts not in swarm cluster - prepare list to bootstrap it
+    - name: create swarm_manager_bootstrap group
+      add_host:
+        hostname: "{{ item }}"
+        groups: swarm_manager_bootstrap
+      with_items: "{{ groups['docker-swarm-manager'] }}" 
+      when: "'active' not in swarm_status.stdout_lines"
+      run_once: true
