@@ -25,6 +25,8 @@
 
 # Yum install package
   - name: Install docker-ce package
+    command: sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  - name: Install docker-ce package
     command: yum update
   - name: Install docker-ce package
     yum: pkg=docker-ce state=installed 
