@@ -23,11 +23,9 @@
 - name:  Initiate Docker Swarm Cluster
   hosts: swarm_manager_bootstrap[0]
   become: true
+  vars: 
+   ip: "testtttttttttttttttttttttttt"  
   tasks:
-    - name: get ip address
-      become: true
-      vars:
-         ip: "testtttttttttttttttttttttttt"
     - name: initialize swarm cluster
       shell: >
         {{ip}}
