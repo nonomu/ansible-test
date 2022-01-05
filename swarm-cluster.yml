@@ -69,7 +69,7 @@
 # Get Swarm status from nodes
     - name: determine swarm status
       shell: >
-        docker info | egrep '^Swarm' | cut -d ' ' -f2
+        docker info | egrep '^Swarm' | cut -d ' ' -f3
       register: swarm_status
 
 # Worker Hosts not in swarm cluster - prepare list to bootstrap it
