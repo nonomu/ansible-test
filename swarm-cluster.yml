@@ -18,15 +18,21 @@
       name: docker-ce-edge
       description: Docker CE Edge - $basearch
       file: external_repos
-      baseurl: https://download.docker.com/linux/centos/7/$basearch/edge
+      baseurl: https://download.docker.com/linux/centos/docker-ce.repo
       gpgcheck: 1
       gpgkey: https://download.docker.com/linux/centos/gpg
       enabled: 1
 
 # Yum install package
   - name: Install docker-ce package
-    yum: pkg=docker-ce state=installed
-
+      shell: >
+         yum update
+  - name: Install docker-ce package
+    yum: pkg=docker-ce state=installed 
+  - name: Install docker-ce-cli package
+    yum: pkg=docker-ce-cli state=installed
+  - name: Install containerd package
+    yum: pkg=containerd.io state=installed     
 # Work with services
 - name: Enable and start docker services
   hosts: docker-swarm
