@@ -1,46 +1,147 @@
----
-- hosts: all
+# 
+- name: install Docker to all cluster hosts
+  hosts: docker-swarm
+  gather_facts: false
+
+# Yum install package
+  tasks:
+  - name: Install yum-ext packages
+    yum: pkg={{item}} state=installed
+    with_items : 
+      - yum-utils
+      - device-mapper-persistent-data
+      - lvm2
+
+# Configure repository
+  - name: Configure docker edge repo
+    yum_repository:
+      name: docker-ce-edge
+      description: Docker CE Edge - $basearch
+      file: external_repos
+      baseurl: https://download.docker.com/linux/centos/7/$basearch/edge
+      gpgcheck: 1
+      gpgkey: https://download.docker.com/linux/centos/gpg
+      enabled: 1
+
+# Yum install package
+  - name: Install docker-ce package
+    yum: pkg=docker-ce state=installed
+
+# Work with services
+- name: Enable and start docker services
+  hosts: docker-swarm
+  gather_facts: false
+  tasks:
+# Enable docker service
+  - name: Enable docker service
+    service:
+      name: docker
+      enabled: yes
+# Reload and restart docker service
+  - name: Restart docker service
+    service:
+      name: docker
+      state: restarted
+      daemon_reload: yes
+# Check if service is started
+  - name: Start docker service
+    service:
+      name: docker
+      state: started
+# Check if nodes in cluster yet
+- name:  Check nodes not in cluster
+  hosts: docker-swarm
+  become: true
+  tasks:
+
+# Get Swarm status from nodes
+    - name: determine swarm status
+      shell: >
+        docker info | egrep '^Swarm' | cut -d ' ' -f2
+      register: swarm_status
+
+# Worker Hosts not in swarm cluster - prepare list to bootstrap it
+    - name: echo_swarm_worker_bootstrap_group
+      add_host:
+        hostname: "{{ item }}"
+        groups: swarm_worker_bootstrap
+#      debug: 
+#        msg: "{{ item }}"
+      with_items:  "{{ groups['docker-swarm-node'] }}"  
+      when: "'active' not in swarm_status.stdout_lines"
+      run_once: true
+
+# Manager Hosts not in swarm cluster - prepare list to bootstrap it
+    - name: create swarm_manager_bootstrap group
+      add_host:
+        hostname: "{{ item }}"
+        groups: swarm_manager_bootstrap
+      with_items: "{{ groups['docker-swarm-manager'] }}" 
+      when: "'active' not in swarm_status.stdout_lines"
+      run_once: true
+
+# 
+- name:  Initiate Docker Swarm Cluster
+  hosts: swarm_manager_bootstrap[0]
+  become: true
+  tasks:
+    - name: initialize swarm cluster
+      shell: >
+        docker swarm init
+        --advertise-addr={{ swarm_iface | default('eth0') }}:2377
+      register: new_cluster_initiated
+    - name: add initialized host to first_manager_node tmp group
+      add_host:
+        hostname: "{{ groups['swarm_manager_bootstrap'][0] }}" 
+        groups: first_manager_node
+      when: new_cluster_initiated | changed
+
+# Collect Swarm cluster data (tokens & etc)
+- name:  name
+  hosts: swarm_manager_bootstrap[0]
   become: true
   vars:
-    create_containers: 4
-    default_container_name: docker
-    default_container_image: ubuntu
-    default_container_command: sleep 1d
-
+    iface: "{{ swarm_iface | default('eth0') }}"
   tasks:
-    - name: Install aptitude using apt
-      apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+    # Get manager token
+    - name: retrieve swarm manager token
+      shell: docker swarm join-token -q manager
+      register: swarm_manager_token
+      when: "'first_manager_node' in groups"
+    # Get worker token
+    - name: retrieve swarm worker token
+      shell: docker swarm join-token -q worker
+      register: swarm_worker_token
+      when: "'first_manager_node' in groups"
+#    # Get Manager IP
+#    - name: retrieve swarm worker ip
+#      shell: Получить IP-менеджера
+#      register: swarm_manager_ip
+#      when: "'first_manager_node' in groups"
 
-    - name: Install required system packages
-      apt: name={{ item }} state=latest update_cache=yes
-      loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools']
-
-    - name: Add Docker GPG apt Key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-
-    - name: Add Docker Repository
-      apt_repository:
-        repo: deb https://download.docker.com/linux/ubuntu xenial stable
-        state: present
-
-    - name: Update apt and install docker-ce
-      apt: update_cache=yes name=docker-ce state=latest
-
-    - name: Install Docker Module for Python
-      pip:
-        name: docker
-
-    - name: Pull default Docker image
-      docker_image:
-        name: "{{ default_container_image }}"
-        source: pull
-
-    - name: Create default containers
-      docker_container:
-        name: "{{ default_container_name }}{{ item }}"
-        image: "{{ default_container_image }}"
-        command: "{{ default_container_command }}"
-        state: present
-      with_sequence: count={{ create_containers }}
+# Join Masters to cluster
+- name: Join Manager nodes to cluster
+  hosts: swarm_manager_bootstrap:!first_manager_node
+  become: true
+  vars:
+    token: "{{ hostvars[groups['first_manager_node'][0]]['swarm_manager_token']['stdout'] }}"
+  tasks:
+    - name: join manager nodes to cluster
+      shell: >
+        docker swarm join
+        --advertise-addr={{ swarm_iface | default('eth0') }}:2377
+        --token={{ token }}
+        {{ hostvars[groups['first_manager_node'][0]]['swarm_manager_ip'] }}:2377
+# Join workers to cluster
+- name: Join worker nodes to cluster
+  hosts: swarm_worker_bootstrap
+  become: true
+  vars:
+    token: "{{ hostvars[groups['first_manager_node'][0]]['swarm_worker_token']['stdout'] }}"
+  tasks:
+    - name: join worker nodes to cluster
+      shell: >
+        docker swarm join
+        --advertise-addr={{ swarm_iface | default('eth0') }}:2377
+        --token={{ token }}
+        {{ hostvars[groups['first_manager_node'][0]]['ansible_ssh_host'] }}:2377
