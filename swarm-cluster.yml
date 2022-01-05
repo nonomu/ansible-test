@@ -102,6 +102,7 @@
       shell: >
         docker swarm init
         --advertise-addr={{ hostvars[groups['swarm_manager_bootstrap'][0]]['swarm_main_manager_ip']['stdout'] }}:2377
+      when: "'active' not in swarm_status.stdout_lines"  
       register: new_cluster_initiated
     - name: add initialized host to first_manager_node tmp group
       add_host:
