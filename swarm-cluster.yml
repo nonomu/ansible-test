@@ -19,6 +19,7 @@
   - name: Update repos
     command: yum update -y
   - name: Install docker packages
+    become: true  
     yum: 
       state: installed
       name: 
