@@ -20,12 +20,12 @@
       run_once: true
 
 
-- name:  Initiate Docker Swarm Cluster
-  hosts: swarm_manager_bootstrap[0]
-  become: true
-  vars: 
-   ip: "testtttttttttttttttttttttttt"  
-  tasks:
-    - name: initialize swarm cluster
-      shell: >
-        {{ip}}
+    - name:  Initiate Docker Swarm Cluster
+      hosts: swarm_manager_bootstrap[0]
+      become: true
+      vars: 
+       ip: "testtttttttttttttttttttttttt"  
+      tasks:
+        - name: initialize swarm cluster
+          shell: >
+            {{ip}}
