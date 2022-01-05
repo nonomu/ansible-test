@@ -1,4 +1,23 @@
 
+# Worker Hosts not in swarm cluster - prepare list to bootstrap it
+    - name: echo_swarm_worker_bootstrap_group
+      add_host:
+        hostname: "{{ item }}"
+        groups: swarm_worker_bootstrap
+#      debug: 
+#        msg: "{{ item }}"
+      with_items:  "{{ groups['docker-swarm-node'] }}"  
+      when: "'active' not in swarm_status.stdout_lines"
+      run_once: true
+
+# Manager Hosts not in swarm cluster - prepare list to bootstrap it
+    - name: create swarm_manager_bootstrap group
+      add_host:
+        hostname: "{{ item }}"
+        groups: swarm_manager_bootstrap
+      with_items: "{{ groups['docker-swarm-manager'] }}" 
+      when: "'active' not in swarm_status.stdout_lines"
+      run_once: true
 
 
 - name:  Initiate Docker Swarm Cluster
