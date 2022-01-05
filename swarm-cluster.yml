@@ -10,7 +10,7 @@
     yum:
       state: installed
       name: 
-       - lvm2
+        - lvm2
         - device-mapper-persistent-data
         - yum-utils
 # Yum install package
