@@ -25,9 +25,7 @@
 
 # Yum install package
   - name: Install docker-ce package
-    tasks:
-      shell: >
-         yum update
+    yum: update
   - name: Install docker-ce package
     yum: pkg=docker-ce state=installed 
   - name: Install docker-ce-cli package
