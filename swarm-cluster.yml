@@ -12,17 +12,6 @@
       - device-mapper-persistent-data
       - lvm2
 
-# Configure repository
-  - name: Configure docker edge repo
-    yum_repository:
-      name: docker-ce-edge
-      description: Docker CE Edge - $basearch
-      file: external_repos
-      baseurl: https://download.docker.com/linux/centos/docker-ce.repo
-      gpgcheck: 1
-      gpgkey: https://download.docker.com/linux/centos/gpg
-      enabled: 1
-
 # Yum install package
   - name: Update docker repo
     command: sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
