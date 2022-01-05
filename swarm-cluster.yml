@@ -109,3 +109,50 @@
         groups: first_manager_node
       when: new_cluster_initiated 
 
+# Collect Swarm cluster data (tokens & etc)
+- name:  name
+  hosts: swarm_manager_bootstrap[0]
+  become: true
+  vars:
+    iface: "{{ swarm_iface | default('eth0') }}"
+  tasks:
+    # Get manager token
+    - name: retrieve swarm manager token
+      shell: docker swarm join-token -q manager
+      register: swarm_manager_token
+      when: "'first_manager_node' in groups"
+    # Get worker token
+    - name: retrieve swarm worker token
+      shell: docker swarm join-token -q worker
+      register: swarm_worker_token
+      when: "'first_manager_node' in groups"
+#    # Get Manager IP
+#    - name: retrieve swarm worker ip
+#      shell: Получить IP-менеджера
+#      register: swarm_manager_ip
+#      when: "'first_manager_node' in groups"
+
+# Join Masters to cluster
+- name: Join Manager nodes to cluster
+  hosts: swarm_manager_bootstrap:!first_manager_node
+  become: true
+  vars:
+    token: "{{ hostvars[groups['first_manager_node'][0]]['swarm_manager_token']['stdout'] }}"
+  tasks:
+    - name: join manager nodes to cluster
+      shell: >
+        docker swarm join
+        --token={{ token }}
+        {{ hostvars[groups['swarm_manager_bootstrap'][0]]['swarm_main_manager_ip']['stdout'] }}:2377
+# Join workers to cluster
+- name: Join worker nodes to cluster
+  hosts: swarm_worker_bootstrap
+  become: true
+  vars:
+    token: "{{ hostvars[groups['first_manager_node'][0]]['swarm_worker_token']['stdout'] }}"
+  tasks:
+    - name: join worker nodes to cluster
+      shell: >
+        docker swarm join
+        --token={{ token }}
+        {{ hostvars[groups['swarm_manager_bootstrap'][0]]['swarm_main_manager_ip']['stdout'] }}:2377
