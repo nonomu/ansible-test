@@ -6,21 +6,12 @@
 # Yum install package
   tasks:
   - name: Install yum-ext packages
-    yum: pkg={{item}} state=installed
-    with_items : 
-      - yum-utils
-      - device-mapper-persistent-data
-      - lvm2
-
+    yum: pkg: ['yum-utils', 'device-mapper-persistent-data', 'lvm2'] state=installed
 # Yum install package
   - name: Update docker repo
     command: sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
   - name: Update repos
     command: yum update -y
   - name: Install docker packages
-    yum: pkg={{item}} state=installed
-    with_items : 
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io   
+    yum: pkg: ['docker-ce', 'docker-ce-cli', 'containerd.io  '] state=installed
 
