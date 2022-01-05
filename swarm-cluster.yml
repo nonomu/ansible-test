@@ -24,9 +24,9 @@
       enabled: 1
 
 # Yum install package
-  - name: Install docker-ce package
+  - name: Update docker repo
     command: sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-  - name: Install docker-ce package
+  - name: Update repos
     command: yum update
   - name: Install docker-ce package
     yum: pkg=docker-ce state=installed 
